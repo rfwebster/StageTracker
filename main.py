@@ -33,6 +33,9 @@ from PyQt5.QtTest import QTest
 from StageTracker import Ui_MainWindow
 
 import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
@@ -89,12 +92,25 @@ class MplCanvas(FigureCanvas):
         self.axes.axis("equal")
         arr = np.array(self.data.snake)
         # print(arr.T)
+
         try:
             arr = arr.T
             x = arr[0]
             y = arr[1]
-            self.axes.plot(x, y, "-k", lw=0.25)
-        except IndexError:
+            z = np.linspace(0, 10, len(x))
+            points = np.array([x, y]).T.reshape(-1, 1, 2)
+            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+            norm = plt.Normalize(z.min(), z.max())
+            lc = LineCollection(segments, cmap='inferno', norm=norm)
+            # Set the values used for colormapping
+            lc.set_array(z)
+            lc.set_linewidth(2)
+            line = self.axes.add_collection(lc)
+            #fig.colorbar(line, ax=axs[0])
+
+
+            #self.axes.plot(x, y, color="k", lw=0.25)
+        except:
             pass
 
         self.axes.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3, mode="expand",
@@ -119,7 +135,7 @@ class UpdaterThread(QObject):
             print("emit")
             self.signalExample.emit(int(coord.CurrentX), int(coord.CurrentY))
             print("wait)")
-            QTest.qWait(500)
+            QTest.qWait(1000)
 
 
 
@@ -142,8 +158,8 @@ class Window(QMainWindow, Ui_MainWindow):
         self.tracker_holder.addWidget(self.canvas)
 
         # set up connections
-
-        self.move_Button.clicked.connect(self._move_random)
+        self.pushButton_MoveRand.clicked.connect(self._move_random)
+        self.pushButton_Go.clicked.connect(self._goto)
 
         self.statusBar().showMessage("Idle")
         self.updater = UpdaterThread()
@@ -174,6 +190,14 @@ class Window(QMainWindow, Ui_MainWindow):
         self._get_current_position()
         self.statusBar().showMessage("X = {}; Y={}".format(int(x/1000), int(y/1000)))
 
+    def _goto(self):
+        x = float(self.SpinBoxX.value() * 1000)
+        y = float(self.SpinBoxY.value() * 1000)
+        stage.SetX(x)
+        stage.SetY(y)
+        self._get_current_position()
+        self.statusBar().showMessage("X = {}; Y={}".format(int(x/1000), int(y/1000)))
+
     ######################################################################################
     #
     # UI Buttons amd functions etc
@@ -181,6 +205,8 @@ class Window(QMainWindow, Ui_MainWindow):
     ######################################################################################
     def _update(self):
         #self._get_current_position()
+        self.lcdNumX.display(coord.CurrentX/1000)
+        self.lcdNumY.display(coord.CurrentY/1000)
         self.canvas.update_plot()
         #QTest.qWait(1000)
 
@@ -190,7 +216,7 @@ class Window(QMainWindow, Ui_MainWindow):
         print(pos[0], pos[1])
         coord.CurrentX, coord.CurrentY = pos[0], pos[1]
         coord.append_snake()
-        self.canvas.update_plot()
+        self._update()
 
 
 if __name__ == "__main__":
