@@ -9,6 +9,9 @@ plt.style.use('dark_background')
 
 import numpy as np
 
+POLLING_TIME = 1000  # ms
+MAX_SNAKE = 500 # number of points in snake
+
 try:
     _online = True
     from PyJEM import TEM3
@@ -21,16 +24,27 @@ class Coord:
         self.CurrentX = 0
         self.CurrentY = 0
         self.snake = []
-        self.snake.append([self.CurrentX, self.CurrentY])
+        self.snake.append([self.CurrentX/1000, self.CurrentY/1000])
 
     def append_snake(self):
-        self.snake.append([self.CurrentX/1000, self.CurrentY/1000])
+        # only update if different
+        try:
+            if self.snake[-1] != [self.CurrentX/1000, self.CurrentY/1000]:
+                self.snake.append([self.CurrentX/1000, self.CurrentY/1000])
+        except IndexError:
+            self.snake.append([self.CurrentX/1000, self.CurrentY/1000])
+            print("Snake has IndexError")
+        # set max snake length
+        if len(self.snake) > MAX_SNAKE:
+            self.snake.pop(0)
 
 
 
 class App:
-    def __init__(self, master):
-        self.master = master
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Snake")
+        self.root.resizable(False, False)        
         self.coord = Coord()
 
         self.setup_ui()
@@ -49,19 +63,13 @@ class App:
 
         self.ax.set_title('Snake')
 
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.master)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
         
         self.current_plot = self.ax.scatter(self.coord.CurrentX/1000, self.coord.CurrentY/1000,
                                              label="Current", c="yellow", marker="x")
         self.ax.legend(loc='upper left', fontsize="small")
-        
-        self.snake_lines = []
-        self.snake_colors = []
-        self.snake_age = []
-        self.cmap = ListedColormap(['blue', 'green', 'yellow', 'orange', 'red'])
-        self.norm = Normalize(vmin=0, vmax=50)
 
         self.circle1 = Circle((0, 0), radius=self.lim/4, color='lawngreen', alpha=0.5, fill=False)
         self.circle2 = Circle((0, 0), radius=self.lim/2, color='lawngreen', alpha=0.5, fill=False)
@@ -73,16 +81,24 @@ class App:
         self.ax.add_patch(self.circle3)
         self.ax.add_patch(self.circle4)
         
-        self.update_plot()
+        self.update()
     
     def setup_ui(self):
-        self.frame = tk.Frame(self.master)
+        self.frame = tk.Frame(self.root)
         self.frame.pack(side=tk.BOTTOM, fill=tk.X)
 
         self.move_Button = tk.Button(self.frame, text="Move Random", command=self._move_random)
         self.move_Button.pack(side=tk.LEFT)
         
-        self.SpinBoxX = tk.Spinbox(self.frame, from_=0, to=1000, increment=1, width=5)
+        # reset canvas
+        self.clear_Button = tk.Button(self.frame, text="Clear", command=self.coord.snake.clear)
+        self.clear_Button.pack(side=tk.LEFT)
+
+        self.SpinBoxX = tk.Spinbox(self.frame, from_=0, to=1000, increment=1, width=5, justify=tk.RIGHT)
+        # set default value
+        self.SpinBoxX.delete(0, tk.END)
+        self.SpinBoxX.insert(0, 200)
+        #position
         self.SpinBoxX.pack(side=tk.RIGHT)
         self.SpinBoxX.bind('<Return>', self._setlim)  # bind Return key to _setlim method
 
@@ -90,12 +106,12 @@ class App:
         self.limit_button.pack(side=tk.RIGHT)
 
 
-        self.NumX = tk.Label(self.frame, text="0.0")
-        self.NumX.pack(side=tk.LEFT)
         self.NumY = tk.Label(self.frame, text="0.0")
-        self.NumY.pack(side=tk.LEFT)
-        self.update_Button = tk.Button(self.frame, text="Update", command=self._update)
-        self.update_Button.pack(side=tk.LEFT)
+        self.NumY.pack(side=tk.BOTTOM)
+        self.NumX = tk.Label(self.frame, text="0.0")
+        self.NumX.pack(side=tk.BOTTOM)
+
+
 
 
     def update_plot(self):
@@ -105,6 +121,12 @@ class App:
         """
         # self.ax.cla()
         self.current_plot.set_offsets(np.array([self.coord.CurrentX/1000, self.coord.CurrentY/1000]))
+
+        # remove old snake
+        try:
+            self.line.remove()
+        except:
+            pass
 
         arr = np.array(self.coord.snake)
         print(arr.T)
@@ -117,14 +139,29 @@ class App:
             points = np.array([x, y]).T.reshape(-1, 1, 2)
             segments = np.concatenate([points[:-1], points[1:]], axis=1)
             norm = plt.Normalize(z.min(), z.max())
-            lc = LineCollection(segments, cmap='autumn', norm=norm)
+            lc = LineCollection(segments, cmap='cool_r', norm=norm)
             # Set the values used for colormapping
             lc.set_array(z)
-            lc.set_linewidth(0.5)
-            line = self.ax.add_collection(lc)
+            lc.set_linewidth(1)
+            self.line = self.ax.add_collection(lc)
         except IndexError:
             pass
         self.canvas.draw()
+
+    def update(self):
+        self._get_current_position()
+        # update labels
+        self.NumX.configure(text=f"X = {self.coord.CurrentX/1000} um")
+        self.NumY.configure(text=f"Y = {self.coord.CurrentY/1000} um")
+        # update plot
+        self.update_plot()
+
+        # update after POLLING_TIME ms
+        self.root.after(POLLING_TIME, self.update)
+    
+    def run(self):
+        self.root.mainloop()
+
 
     ######################################################################################
     #
@@ -150,23 +187,22 @@ class App:
         self.circle4.set_radius(self.lim)
         self.update_plot()
 
-    def _update(self):
-        #self._get_current_position()
-        self.NumX.configure(text=self.coord.CurrentX/1000)
-        self.NumY.configure(text=self.coord.CurrentY/1000)
-        self.update_plot()
-        #QTest.qWait(1000)
-
     def _get_current_position(self):
         print("getting current position")
         pos = stage.GetPos()
         print(pos[0], pos[1])
         self.coord.CurrentX, self.coord.CurrentY = pos[0], pos[1]
         self.coord.append_snake()
-        self._update()
+
+    def _clear(self):
+        # remove the line collections from the plot
+        self.line.remove()
+        self._setlim()
+        self.coord.snake.clear()
+        self.update_plot()
+
 
 if __name__ == "__main__":
     stage = TEM3.Stage3()
-    root = tk.Tk()
-    app = App(root)
-    root.mainloop()
+    app = App()
+    app.run()
