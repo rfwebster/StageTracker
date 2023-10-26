@@ -44,7 +44,9 @@ class App:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Snake")
-        self.root.resizable(False, False)        
+        self.root.resizable(False, False)    
+        self.root.configure(background='black')
+
         self.coord = Coord()
 
         self.setup_ui()
@@ -84,32 +86,34 @@ class App:
         self.update()
     
     def setup_ui(self):
-        self.frame = tk.Frame(self.root)
-        self.frame.pack(side=tk.BOTTOM, fill=tk.X)
+        self.frame = tk.Frame(self.root, background="black")
+        self.frame.pack(side=tk.BOTTOM, fill=tk.X)  
 
         self.move_Button = tk.Button(self.frame, text="Move Random", command=self._move_random)
-        self.move_Button.pack(side=tk.LEFT)
+        self.move_Button.pack(side=tk.LEFT, padx=5, pady=5)
         
         # reset canvas
         self.clear_Button = tk.Button(self.frame, text="Clear", command=self.coord.snake.clear)
-        self.clear_Button.pack(side=tk.LEFT)
+        self.clear_Button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.NumX = tk.Label(self.frame, text="0.0", background="black", foreground="white")
+        self.NumX.pack(side=tk.LEFT, padx=5, pady=5)
+        self.NumY = tk.Label(self.frame, text="0.0", background="black", foreground="white")
+        self.NumY.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.SpinBoxX = tk.Spinbox(self.frame, from_=0, to=1000, increment=1, width=5, justify=tk.RIGHT)
         # set default value
         self.SpinBoxX.delete(0, tk.END)
         self.SpinBoxX.insert(0, 200)
         #position
-        self.SpinBoxX.pack(side=tk.RIGHT)
+        self.SpinBoxX.pack(side=tk.RIGHT, padx=5, pady=5)
         self.SpinBoxX.bind('<Return>', self._setlim)  # bind Return key to _setlim method
 
         self.limit_button = tk.Button(self.frame, text="Set Limit:", command=self._setlim)
-        self.limit_button.pack(side=tk.RIGHT)
+        self.limit_button.pack(side=tk.RIGHT, padx=5, pady=5)
 
 
-        self.NumY = tk.Label(self.frame, text="0.0")
-        self.NumY.pack(side=tk.BOTTOM)
-        self.NumX = tk.Label(self.frame, text="0.0")
-        self.NumX.pack(side=tk.BOTTOM)
+
 
 
 
